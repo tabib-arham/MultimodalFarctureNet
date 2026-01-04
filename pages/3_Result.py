@@ -1,27 +1,37 @@
 import streamlit as st
 import numpy as np
+import tensorflow as tf
 import matplotlib.pyplot as plt
-import cv2
+from PIL import Image
+import joblib
+
+from lime import lime_image
 from skimage.segmentation import mark_boundaries
 
-# ================= PAGE TITLE =================
-st.title("📊 Result")
+# ================= LOAD ARTIFACTS =================
+@st.cache_resource
+def load_model_and_artifacts():
+    model = tf.keras.models.load_model("multimodal_cnn_final.h5")
+    artifacts = joblib.load("preprocessing_artifacts.pkl")
+    return model, artifacts
+
+model, artifacts = load_model_and_artifacts()
+CLASS_NAMES = artifacts["class_names"]
 
 # ================= CHECK =================
+st.title("📊 Result")
+
 if "image" not in st.session_state:
     st.warning("No analysis found.")
     st.stop()
 
 image_pil = st.session_state["image"]
-image = np.array(image_pil)
-
-top = st.session_state["top"]
+metadata = st.session_state["metadata"]
 preds = st.session_state["preds"]
+top = st.session_state["top"]
 
-# ================= DISPLAY IMAGE =================
 st.image(image_pil, width=350)
 
-# ================= FINAL PREDICTION =================
 st.success(f"Diagnosis: {top['label']} ({top['confidence']}%)")
 
 st.subheader("Prediction Scores")
@@ -31,73 +41,85 @@ st.table(preds)
 st.subheader("📊 Prediction Confidence Histogram")
 
 labels = [p["label"] for p in preds]
-confidences = [p["confidence"] for p in preds]
+conf = [p["confidence"] for p in preds]
 
 fig, ax = plt.subplots()
-ax.bar(labels, confidences)
+ax.bar(labels, conf)
 ax.set_ylabel("Confidence (%)")
 ax.set_ylim(0, 100)
-ax.set_title("Class-wise Confidence Distribution")
-plt.xticks(rotation=30)
+plt.xticks(rotation=25)
 st.pyplot(fig)
 
-# ================= PREPROCESS IMAGE (TRAINING IDENTICAL) =================
-img_gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-img_gray = clahe.apply(img_gray)
-img_gray = cv2.resize(img_gray, (224, 224))
-img_rgb = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2RGB)
+# ================= PREPROCESS IMAGE (NO CV2) =================
+img = image_pil.convert("L").resize((224, 224))
+img_rgb = np.stack([np.array(img)] * 3, axis=-1)
+img_norm = img_rgb.astype(np.float32) / 255.0
+img_batch = img_norm[np.newaxis, ...]
+
+# ================= PREPROCESS METADATA =================
+meta_vec = np.array(list(metadata.values()), dtype=np.float32)
+meta_batch = meta_vec[np.newaxis, ...]
 
 # ================= GRAD-CAM =================
-st.subheader("🔥 Grad-CAM Visualization")
+st.subheader("🔥 Grad-CAM")
 
-# ---- SIMULATED GRADCAM HEATMAP (HOOK YOUR FUNCTION HERE) ----
-heatmap = np.random.rand(224, 224)
-heatmap = np.maximum(heatmap, 0)
-heatmap = heatmap / heatmap.max()
+last_conv = [l for l in model.layers if isinstance(l, tf.keras.layers.Conv2D)][-1]
 
-heatmap_color = cv2.applyColorMap(
-    np.uint8(255 * heatmap), cv2.COLORMAP_JET
+grad_model = tf.keras.models.Model(
+    model.inputs, [last_conv.output, model.output]
 )
 
-overlay = cv2.addWeighted(img_rgb, 0.6, heatmap_color, 0.4, 0)
+with tf.GradientTape() as tape:
+    conv_out, preds_tf = grad_model([img_batch, meta_batch])
+    class_idx = CLASS_NAMES.index(top["label"])
+    loss = preds_tf[:, class_idx]
 
-st.image(
-    overlay,
-    caption="Grad-CAM: Red = High importance, Blue = Low importance",
-    use_column_width=True
-)
-
-# ================= GRID COLOR INTENSITY =================
-st.markdown("**Grid-Level Importance (Grad-CAM)**")
+grads = tape.gradient(loss, conv_out)
+weights = tf.reduce_mean(grads, axis=(1, 2))
+cam = tf.reduce_sum(weights[:, None, None, :] * conv_out, axis=-1)[0]
+cam = np.maximum(cam, 0)
+cam /= cam.max()
 
 fig2, ax2 = plt.subplots()
-ax2.imshow(heatmap, cmap="jet")
-ax2.set_title("Grad-CAM Heatmap Grid")
+ax2.imshow(img_rgb)
+ax2.imshow(cam, cmap="jet", alpha=0.45)
 ax2.axis("off")
 st.pyplot(fig2)
 
 # ================= LIME =================
 st.subheader("🟩 LIME Explanation")
 
-# ---- SIMULATED LIME MASK (HOOK YOUR FUNCTION HERE) ----
-lime_mask = np.zeros((224, 224), dtype=int)
-lime_mask[heatmap > 0.6] = 1
+explainer = lime_image.LimeImageExplainer()
 
-lime_vis = mark_boundaries(img_rgb / 255.0, lime_mask)
+def predict_fn(images):
+    images = np.array(images).astype(np.float32) / 255.0
+    meta_rep = np.repeat(meta_batch, images.shape[0], axis=0)
+    return model.predict([images, meta_rep], verbose=0)
+
+explanation = explainer.explain_instance(
+    img_rgb.astype(np.uint8),
+    predict_fn,
+    top_labels=len(CLASS_NAMES),
+    num_samples=500
+)
+
+temp, mask = explanation.get_image_and_mask(
+    class_idx, positive_only=False, num_features=10, hide_rest=False
+)
+
+lime_vis = mark_boundaries(temp / 255.0, mask)
 
 st.image(
     lime_vis,
-    caption="LIME: Highlighted regions positively influence prediction",
+    caption="Green boundaries indicate influential regions",
     use_column_width=True
 )
 
 # ================= LEGEND =================
-st.markdown("### 🎨 Color Legend")
-
 st.markdown("""
-- 🔴 **Red**: Strong positive contribution (Grad-CAM)
-- 🟡 **Yellow**: Moderate contribution
-- 🔵 **Blue**: Weak contribution
-- 🟩 **Green Boundary**: Important superpixels (LIME)
+### 🎨 Interpretation Guide
+- 🔴 **Red (Grad-CAM)**: High contribution
+- 🟡 **Yellow**: Medium contribution
+- 🔵 **Blue**: Low contribution
+- 🟩 **Green (LIME)**: Important superpixels
 """)
