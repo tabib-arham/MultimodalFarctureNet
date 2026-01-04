@@ -1,11 +1,11 @@
 from pathlib import Path
-import random
 import numpy as np
 import joblib
 import streamlit as st
 from PIL import Image
 import tensorflow as tf
 
+# ---------------- CONFIG ----------------
 BASE_DIR = Path(__file__).resolve().parent
 
 CLASS_NAMES = [
@@ -30,6 +30,7 @@ METADATA_OPTIONS = {
     ]
 }
 
+# ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_assets():
     model = tf.keras.models.load_model(BASE_DIR / "multimodal_cnn_final.h5")
@@ -38,23 +39,31 @@ def load_assets():
 
 model, artifacts = load_assets()
 
+# ---------------- PREPROCESS ----------------
 def preprocess_image(image):
-    image = image.convert("RGB").resize((224,224))
-    arr = np.array(image, dtype=np.float32) / 255.0
-    return np.expand_dims(arr, axis=0)
+    img = image.convert("L").resize((224, 224))
+    img = np.stack([np.array(img)] * 3, axis=-1)
+    img = img.astype(np.float32) / 255.0
+    return img[np.newaxis, ...]
 
 def preprocess_metadata(metadata):
-    enc = artifacts['label_encoders']
-    scaler = artifacts['scaler']
+    enc = artifacts["label_encoders"]
+    scaler = artifacts["scaler"]
 
-    cat = [enc[f].transform([metadata[f]])[0]
-           for f in ['gender','bone_type','left_right',
-                     'gap_visibility','primary_observation']]
+    # categorical (NO scaling)
+    cat = [
+        enc["gender"].transform([metadata["gender"]])[0],
+        enc["bone_type"].transform([metadata["bone_type"]])[0],
+        enc["left_right"].transform([metadata["left_right"]])[0],
+        enc["gap_visibility"].transform([metadata["gap_visibility"]])[0],
+        enc["primary_observation"].transform([metadata["primary_observation"]])[0],
+    ]
 
+    # numerical (ONLY scaled part)
     num = scaler.transform([[
-        metadata['age'],
-        metadata['bone_width'],
-        metadata['fracture_gap']
+        metadata["age"],
+        metadata["bone_width"],
+        metadata["fracture_gap"]
     ]])[0]
 
     return np.array([cat + num.tolist()], dtype=np.float32)
@@ -62,18 +71,21 @@ def preprocess_metadata(metadata):
 def predict(image, metadata):
     img = preprocess_image(image)
     meta = preprocess_metadata(metadata)
-    preds = model.predict([img, meta])[0]
+    probs = model.predict([img, meta], verbose=0)[0]
 
     results = [{
         "label": CLASS_NAMES[i],
-        "confidence": round(float(preds[i]) * 100, 2)
+        "confidence": round(float(probs[i]) * 100, 2)
     } for i in range(len(CLASS_NAMES))]
 
     results.sort(key=lambda x: x["confidence"], reverse=True)
     return results, results[0]
 
-def fake_predict():
-    scores = [random.random() for _ in CLASS_NAMES]
-    s = sum(scores)
-    return [{"label": c, "confidence": round(sc/s*100,2)}
-            for c, sc in zip(CLASS_NAMES, scores)]
+# ---------------- HOME UI ----------------
+st.set_page_config(page_title="MultiBoneFracNet", page_icon="🦴")
+
+st.title("🦴 MultiBoneFracNet")
+st.write("Multimodal AI system for bone fracture detection")
+
+if st.button("Start New Analysis"):
+    st.switch_page("pages/2_Upload.py")
