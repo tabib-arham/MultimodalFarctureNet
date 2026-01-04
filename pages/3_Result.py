@@ -68,19 +68,21 @@ class_idx = CLASS_NAMES.index(top["label"])
 
 with tf.GradientTape() as tape:
     conv_out, pred = grad_model([img_batch, meta_vec])
-    loss = pred[0, class_idx]   # ✅ scalar
+    pred_vec = tf.squeeze(pred)        # ✅ FIX
+    loss = pred_vec[class_idx]          # ✅ scalar
 
 grads = tape.gradient(loss, conv_out)
-weights = tf.reduce_mean(grads, axis=(1,2))
-cam = tf.reduce_sum(weights[:,None,None,:] * conv_out, axis=-1)[0]
-cam = np.maximum(cam,0)
-cam /= cam.max()
+weights = tf.reduce_mean(grads, axis=(1, 2))
+cam = tf.reduce_sum(weights[:, None, None, :] * conv_out, axis=-1)[0]
+cam = tf.maximum(cam, 0)
+cam /= tf.reduce_max(cam)
 
 fig2, ax2 = plt.subplots()
 ax2.imshow(img_rgb, cmap="gray")
 ax2.imshow(cam, cmap="jet", alpha=0.45)
 ax2.axis("off")
 st.pyplot(fig2)
+
 
 # ---------------- LIME ----------------
 st.subheader("🟩 LIME Explanation")
@@ -113,3 +115,4 @@ st.image(lime_vis, use_column_width=True)
 if st.button("🔁 Predict Another X-ray"):
     st.session_state.clear()
     st.switch_page("pages/2_Upload.py")
+
