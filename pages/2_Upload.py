@@ -9,24 +9,17 @@ st.subheader("Upload X-ray Image")
 
 uploaded = st.file_uploader("Upload X-ray", ["jpg", "jpeg", "png"])
 
-# ---------------- X-RAY CHECK FUNCTION ----------------
+# ---------------- X-RAY CHECK ----------------
 def is_xray_image(img):
-    """
-    Simple X-ray validation:
-    - Mostly grayscale
-    - Low RGB channel variance
-    """
     img_np = np.array(img)
 
-    # True grayscale image
     if len(img_np.shape) == 2:
         return True
 
-    # RGB but grayscale-like
     if img_np.shape[2] == 3:
         r, g, b = img_np[:,:,0], img_np[:,:,1], img_np[:,:,2]
         diff = np.mean(np.abs(r - g)) + np.mean(np.abs(r - b))
-        return diff < 15  # threshold
+        return diff < 15
 
     return False
 
@@ -53,17 +46,14 @@ with st.form("meta"):
 
     submit = st.form_submit_button("Analyze")
 
-# ---------------- SUBMISSION LOGIC ----------------
+# ---------------- SUBMIT ----------------
 if submit and uploaded:
     image = Image.open(uploaded).convert("RGB")
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # ❗ X-ray validation
     if not is_xray_image(image):
-        st.error("❌ The uploaded image does not appear to be an X-ray image.")
+        st.error("❌ This image does not appear to be an X-ray.")
         st.stop()
-
-    st.success("✅ Valid X-ray image detected.")
 
     metadata = {
         "gender": gender,
@@ -85,6 +75,5 @@ if submit and uploaded:
     st.session_state["image"] = image
     st.session_state["preds"] = preds
     st.session_state["top"] = top
-    st.session_state["metadata"] = metadata
 
     st.switch_page("pages/3_Result.py")
