@@ -1,11 +1,36 @@
 import streamlit as st
 from PIL import Image
+import numpy as np
 from app import METADATA_OPTIONS, predict, fake_predict, model
 
-st.title("📤 Upload X-ray Image")
+# ---------------- HEADER ----------------
+st.title("🦴 MultiBoneFracNet")
+st.subheader("Upload X-ray Image")
 
-uploaded = st.file_uploader("Upload X-ray", ["jpg","jpeg","png"])
+uploaded = st.file_uploader("Upload X-ray", ["jpg", "jpeg", "png"])
 
+# ---------------- X-RAY CHECK FUNCTION ----------------
+def is_xray_image(img):
+    """
+    Simple X-ray validation:
+    - Mostly grayscale
+    - Low RGB channel variance
+    """
+    img_np = np.array(img)
+
+    # True grayscale image
+    if len(img_np.shape) == 2:
+        return True
+
+    # RGB but grayscale-like
+    if img_np.shape[2] == 3:
+        r, g, b = img_np[:,:,0], img_np[:,:,1], img_np[:,:,2]
+        diff = np.mean(np.abs(r - g)) + np.mean(np.abs(r - b))
+        return diff < 15  # threshold
+
+    return False
+
+# ---------------- METADATA FORM ----------------
 with st.form("meta"):
     col1, col2, col3 = st.columns(3)
 
@@ -28,8 +53,17 @@ with st.form("meta"):
 
     submit = st.form_submit_button("Analyze")
 
+# ---------------- SUBMISSION LOGIC ----------------
 if submit and uploaded:
     image = Image.open(uploaded).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    # ❗ X-ray validation
+    if not is_xray_image(image):
+        st.error("❌ The uploaded image does not appear to be an X-ray image.")
+        st.stop()
+
+    st.success("✅ Valid X-ray image detected.")
 
     metadata = {
         "gender": gender,
