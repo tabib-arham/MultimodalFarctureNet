@@ -11,15 +11,14 @@ if "image" not in st.session_state:
     st.warning("No analysis found.")
     st.stop()
 
-# ================= LOAD FROM SESSION =================
 image = st.session_state["image"]
 preds = st.session_state["preds"]
 top = st.session_state["top"]
 
-# ================= DISPLAY IMAGE =================
+# ================= IMAGE =================
 st.image(image, width=350)
 
-# ================= FINAL DIAGNOSIS =================
+# ================= PREDICTION =================
 st.success(f"Diagnosis: {top['label']} ({top['confidence']}%)")
 
 st.subheader("Prediction Scores")
@@ -29,10 +28,10 @@ st.table(preds)
 st.subheader("📊 Prediction Confidence Histogram")
 
 labels = [p["label"] for p in preds]
-confidences = [p["confidence"] for p in preds]
+values = [p["confidence"] for p in preds]
 
 fig, ax = plt.subplots()
-ax.bar(labels, confidences)
+ax.bar(labels, values)
 ax.set_ylabel("Confidence (%)")
 ax.set_ylim(0, 100)
 plt.xticks(rotation=30)
@@ -42,21 +41,19 @@ st.pyplot(fig)
 img = image.convert("L").resize((224, 224))
 img_rgb = np.stack([np.array(img)] * 3, axis=-1)
 
-# ================= GRAD-CAM (UI-SAFE DEMO) =================
+# ================= GRAD-CAM (DEMO SAFE) =================
 st.subheader("🔥 Grad-CAM Visualization")
 
-# NOTE: Real Grad-CAM should be computed offline or cached
 heatmap = np.random.rand(224, 224)
 heatmap /= heatmap.max()
 
 fig2, ax2 = plt.subplots()
 ax2.imshow(img_rgb, cmap="gray")
 ax2.imshow(heatmap, cmap="jet", alpha=0.45)
-ax2.set_title("Grad-CAM (importance overlay)")
 ax2.axis("off")
 st.pyplot(fig2)
 
-# ================= GRID INTENSITY =================
+# ================= GRID =================
 st.markdown("**Grid-level importance**")
 
 fig3, ax3 = plt.subplots()
@@ -64,7 +61,7 @@ ax3.imshow(heatmap, cmap="jet")
 ax3.axis("off")
 st.pyplot(fig3)
 
-# ================= LIME (UI DEMO SAFE) =================
+# ================= LIME (DEMO SAFE) =================
 st.subheader("🟩 LIME Explanation")
 
 lime_mask = np.zeros((224, 224), dtype=int)
@@ -86,3 +83,13 @@ st.markdown("""
 - 🔵 **Blue**: Low contribution
 - 🟩 **Green boundaries**: LIME superpixels
 """)
+# ================= PREDICT ANOTHER =================
+st.markdown("---")
+
+if st.button("🔁 Predict Another X-ray"):
+    # Clear previous results
+    for key in ["image", "preds", "top"]:
+        if key in st.session_state:
+            del st.session_state[key]
+
+    st.switch_page("pages/2_Upload.py")
