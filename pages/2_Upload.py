@@ -1,58 +1,42 @@
 import streamlit as st
 from PIL import Image
 import numpy as np
-from app import METADATA_OPTIONS, predict, fake_predict, model
+from app import METADATA_OPTIONS, predict
 
-# ---------------- HEADER ----------------
 st.title("🦴 MultiBoneFracNet")
 st.subheader("Upload X-ray Image")
 
-uploaded = st.file_uploader("Upload X-ray", ["jpg", "jpeg", "png"])
+uploaded = st.file_uploader("Upload X-ray", ["jpg","jpeg","png"])
 
-# ---------------- X-RAY CHECK ----------------
-def is_xray_image(img):
-    img_np = np.array(img)
-
-    if len(img_np.shape) == 2:
+def is_xray(img):
+    arr = np.array(img)
+    if arr.ndim == 2:
         return True
+    diff = np.mean(np.abs(arr[:,:,0] - arr[:,:,1])) + np.mean(np.abs(arr[:,:,0] - arr[:,:,2]))
+    return diff < 15
 
-    if img_np.shape[2] == 3:
-        r, g, b = img_np[:,:,0], img_np[:,:,1], img_np[:,:,2]
-        diff = np.mean(np.abs(r - g)) + np.mean(np.abs(r - b))
-        return diff < 15
-
-    return False
-
-# ---------------- METADATA FORM ----------------
 with st.form("meta"):
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        gender = st.selectbox("Gender", METADATA_OPTIONS['gender'])
-        bone_type = st.selectbox("Bone Type", METADATA_OPTIONS['bone_type'])
-        left_right = st.selectbox("Side", METADATA_OPTIONS['left_right'])
-
-    with col2:
-        gap_visibility = st.selectbox("Gap Visibility", METADATA_OPTIONS['gap_visibility'])
-        primary_observation = st.selectbox(
-            "Primary Observation",
-            METADATA_OPTIONS['primary_observation']
-        )
-
-    with col3:
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        gender = st.selectbox("Gender", METADATA_OPTIONS["gender"])
+        bone_type = st.selectbox("Bone Type", METADATA_OPTIONS["bone_type"])
+        left_right = st.selectbox("Side", METADATA_OPTIONS["left_right"])
+    with c2:
+        gap_visibility = st.selectbox("Gap Visibility", METADATA_OPTIONS["gap_visibility"])
+        primary_observation = st.selectbox("Primary Observation", METADATA_OPTIONS["primary_observation"])
+    with c3:
         age = st.number_input("Age", 0, 120, 40)
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
     submit = st.form_submit_button("Analyze")
 
-# ---------------- SUBMIT ----------------
 if submit and uploaded:
     image = Image.open(uploaded).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    st.image(image, use_column_width=True)
 
-    if not is_xray_image(image):
-        st.error("❌ This image does not appear to be an X-ray.")
+    if not is_xray(image):
+        st.error("❌ Not a valid X-ray image")
         st.stop()
 
     metadata = {
@@ -66,13 +50,10 @@ if submit and uploaded:
         "fracture_gap": fracture_gap
     }
 
-    if model:
-        preds, top = predict(image, metadata)
-    else:
-        preds = fake_predict()
-        top = max(preds, key=lambda x: x["confidence"])
+    preds, top = predict(image, metadata)
 
     st.session_state["image"] = image
+    st.session_state["metadata"] = metadata
     st.session_state["preds"] = preds
     st.session_state["top"] = top
 
