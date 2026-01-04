@@ -7,12 +7,14 @@ from skimage.segmentation import mark_boundaries
 from tensorflow.keras import layers, Model
 from app import model, artifacts, CLASS_NAMES
 
+# ================= TITLE =================
 st.title("📊 Result")
 
 if "image" not in st.session_state:
     st.warning("No analysis found.")
     st.stop()
 
+# ================= LOAD SESSION =================
 image = st.session_state["image"]
 metadata = st.session_state["metadata"]
 preds = st.session_state["preds"]
@@ -22,30 +24,55 @@ st.image(image, width=350)
 st.success(f"Diagnosis: {top['label']} ({top['confidence']}%)")
 st.table(preds)
 
-# ---------- HISTOGRAM ----------
+# ================= HISTOGRAM =================
 labels = [p["label"] for p in preds]
 values = [p["confidence"] for p in preds]
 
 fig, ax = plt.subplots()
 ax.bar(labels, values)
-ax.set_ylim(0,100)
+ax.set_ylim(0, 100)
 ax.set_ylabel("Confidence (%)")
 plt.xticks(rotation=25)
 st.pyplot(fig)
 
-# ---------- PREPROCESS ----------
-img = image.convert("L").resize((224,224))
+# =================================================
+# ✅ METADATA PREPROCESS (IDENTICAL TO app.py)
+# =================================================
+enc = artifacts["label_encoders"]
+scaler = artifacts["scaler"]
+
+# --- categorical (NO scaling) ---
+cat = [
+    enc["gender"].transform([metadata["gender"]])[0],
+    enc["bone_type"].transform([metadata["bone_type"]])[0],
+    enc["left_right"].transform([metadata["left_right"]])[0],
+    enc["gap_visibility"].transform([metadata["gap_visibility"]])[0],
+    enc["primary_observation"].transform([metadata["primary_observation"]])[0],
+]
+
+# --- numerical (ONLY these are scaled) ---
+num_scaled = scaler.transform([[
+    metadata["age"],
+    metadata["bone_width"],
+    metadata["fracture_gap"]
+]])[0]
+
+# --- final metadata vector (8 features) ---
+meta_vec = np.array([cat + num_scaled.tolist()], dtype=np.float32)
+
+# =================================================
+# IMAGE PREPROCESS (same as app.py)
+# =================================================
+img = image.convert("L").resize((224, 224))
 img_rgb = np.stack([np.array(img)] * 3, axis=-1)
 img_norm = img_rgb.astype(np.float32) / 255.0
 img_batch = img_norm[np.newaxis, ...]
 
-meta_vec = artifacts["scaler"].transform(
-    np.array([[artifacts["label_encoders"][k].transform([metadata[k]])[0]
-               for k in ['gender','bone_type','left_right','gap_visibility','primary_observation']]
-              + [metadata['age'], metadata['bone_width'], metadata['fracture_gap']]])
-)
+# =================================================
+# 🔥 REAL GRAD-CAM
+# =================================================
+st.subheader("🔥 Grad-CAM")
 
-# ---------- GRAD-CAM ----------
 last_conv = [l for l in model.layers if isinstance(l, layers.Conv2D)][-1]
 grad_model = Model(model.inputs, [last_conv.output, model.output])
 
@@ -54,9 +81,9 @@ with tf.GradientTape() as tape:
     loss = pred[:, CLASS_NAMES.index(top["label"])]
 
 grads = tape.gradient(loss, conv_out)
-weights = tf.reduce_mean(grads, axis=(1,2))
-cam = tf.reduce_sum(weights[:,None,None,:] * conv_out, axis=-1)[0]
-cam = np.maximum(cam,0)
+weights = tf.reduce_mean(grads, axis=(1, 2))
+cam = tf.reduce_sum(weights[:, None, None, :] * conv_out, axis=-1)[0]
+cam = np.maximum(cam, 0)
 cam /= cam.max()
 
 fig2, ax2 = plt.subplots()
@@ -65,7 +92,11 @@ ax2.imshow(cam, cmap="jet", alpha=0.45)
 ax2.axis("off")
 st.pyplot(fig2)
 
-# ---------- LIME ----------
+# =================================================
+# 🟩 REAL LIME
+# =================================================
+st.subheader("🟩 LIME Explanation")
+
 explainer = lime_image.LimeImageExplainer()
 
 def predict_fn(images):
@@ -87,10 +118,12 @@ temp, mask = exp.get_image_and_mask(
     hide_rest=False
 )
 
-lime_vis = mark_boundaries(temp/255.0, mask)
+lime_vis = mark_boundaries(temp / 255.0, mask)
 st.image(lime_vis, caption="LIME Explanation", use_column_width=True)
 
-# ---------- BACK ----------
+# =================================================
+# BACK BUTTON
+# =================================================
 if st.button("🔁 Predict Another X-ray"):
     st.session_state.clear()
     st.switch_page("pages/2_Upload.py")
