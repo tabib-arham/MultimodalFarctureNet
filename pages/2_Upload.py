@@ -6,7 +6,7 @@ from app import METADATA_OPTIONS, predict
 st.title("🦴 MultiBoneFracNet")
 st.subheader("Upload X-ray Image")
 
-uploaded = st.file_uploader("Upload X-ray", ["jpg","jpeg","png"])
+uploaded = st.file_uploader("Upload X-ray", ["jpg", "jpeg", "png"])
 
 def is_xray(img):
     arr = np.array(img)
@@ -17,13 +17,18 @@ def is_xray(img):
 
 with st.form("meta"):
     c1, c2, c3 = st.columns(3)
+
     with c1:
         gender = st.selectbox("Gender", METADATA_OPTIONS["gender"])
         bone_type = st.selectbox("Bone Type", METADATA_OPTIONS["bone_type"])
         left_right = st.selectbox("Side", METADATA_OPTIONS["left_right"])
+
     with c2:
         gap_visibility = st.selectbox("Gap Visibility", METADATA_OPTIONS["gap_visibility"])
-        primary_observation = st.selectbox("Primary Observation", METADATA_OPTIONS["primary_observation"])
+        primary_observation = st.selectbox(
+            "Primary Observation", METADATA_OPTIONS["primary_observation"]
+        )
+
     with c3:
         age = st.number_input("Age", 0, 120, 40)
         bone_width = st.number_input("Bone Width", min_value=0.0)
