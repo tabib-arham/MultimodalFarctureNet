@@ -14,46 +14,11 @@ st.set_page_config(
 st.title("🦴 MultiBoneFracNet")
 st.subheader("Upload X-ray Image and Clinical Metadata")
 
-# ---------------- RESPONSIVE UPLOAD + INSTRUCTIONS ----------------
-left_col, right_col = st.columns([3, 2])
-
-with left_col:
-    uploaded = st.file_uploader(
-        "Upload X-ray",
-        type=["jpg", "jpeg", "png"]
-    )
-
-with right_col:
-    with st.expander("📌 Instructions for Metadata Selection", expanded=True):
-
-        st.markdown("**Apply _End of the Bone_ when:**")
-        st.markdown("""
-        - Fracture occurs in the humerus, from the middle to the elbow  
-        - Fracture occurs in the radius or ulna, middle to carpals  
-        - Fracture occurs in the femur, from the middle to the knee  
-        - Fracture occurs in the tibia or fibula, from the middle to the end of the metatarsal
-        """)
-
-        st.markdown("**Apply _Begin of the Bone_ when:**")
-        st.markdown("""
-        - Fracture occurs in the humerus, from the shoulder to the middle  
-        - Fracture occurs in the radius or ulna, from the elbow end to the middle  
-        - Fracture occurs in the femur, from the hip joint to the middle  
-        - Fracture occurs in the tibia or fibula, from the knee end to the middle
-        """)
-
-        st.markdown("**Apply _Callus Present_ when:**")
-        st.markdown("""
-        - There is a previous fracture issue  
-        - The bone appears modified or healed
-        """)
-
-        st.markdown("**Apply _Gap Visibility_:**")
-        st.markdown("""
-        - No fracture gap visible to the naked eye → **No**  
-        - Gap ≤ 5 mm → **Slight**  
-        - Gap > 5 mm → **Yes**
-        """)
+# ---------------- UPLOAD SECTION ----------------
+uploaded = st.file_uploader(
+    "Upload X-ray",
+    type=["jpg", "jpeg", "png"]
+)
 
 # ---------------- X-RAY VALIDATION ----------------
 def is_xray(img):
@@ -68,6 +33,8 @@ def is_xray(img):
 
 # ---------------- METADATA FORM ----------------
 with st.form("meta"):
+    st.markdown("### 🧾 Clinical Metadata")
+
     c1, c2, c3 = st.columns(3)
 
     with c1:
@@ -90,6 +57,41 @@ with st.form("meta"):
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
     submit = st.form_submit_button("Analyze")
+
+# ---------------- INSTRUCTION SECTION (FULL WIDTH, BELOW METADATA) ----------------
+st.markdown("---")
+st.markdown("## 📌 Instructions for Metadata Selection")
+
+with st.expander("Click to view detailed annotation instructions", expanded=True):
+
+    st.markdown("### Apply **End of the Bone** when:")
+    st.markdown("""
+    - Fracture occurs in the humerus, from the middle to the elbow  
+    - Fracture occurs in the radius or ulna, from the middle to carpals  
+    - Fracture occurs in the femur, from the middle to the knee  
+    - Fracture occurs in the tibia or fibula, from the middle to the end of the metatarsal
+    """)
+
+    st.markdown("### Apply **Begin of the Bone** when:")
+    st.markdown("""
+    - Fracture occurs in the humerus, from the shoulder to the middle  
+    - Fracture occurs in the radius or ulna, from the elbow end to the middle  
+    - Fracture occurs in the femur, from the hip joint to the middle  
+    - Fracture occurs in the tibia or fibula, from the knee end to the middle
+    """)
+
+    st.markdown("### Apply **Callus Present** when:")
+    st.markdown("""
+    - There is a previous fracture issue  
+    - The bone appears modified or healed
+    """)
+
+    st.markdown("### Apply **Gap Visibility**:")
+    st.markdown("""
+    - No fracture gap visible to the naked eye → **No**  
+    - Gap ≤ 5 mm → **Slight**  
+    - Gap > 5 mm → **Yes**
+    """)
 
 # ---------------- PREDICTION PIPELINE ----------------
 if submit and uploaded:
