@@ -31,6 +31,11 @@ def is_xray(img):
     )
     return diff < 15
 
+# ---------------- IMAGE PREVIEW (BEFORE METADATA FORM) ----------------
+if uploaded:
+    image_preview = Image.open(uploaded).convert("RGB")
+    st.image(image_preview, caption="Uploaded X-ray Preview", use_column_width=True)
+
 # ---------------- METADATA FORM ----------------
 with st.form("meta"):
     st.markdown("### 🧾 Clinical Metadata")
@@ -96,7 +101,6 @@ with st.expander("Click to view detailed annotation instructions", expanded=True
 # ---------------- PREDICTION PIPELINE ----------------
 if submit and uploaded:
     image = Image.open(uploaded).convert("RGB")
-    st.image(image, use_column_width=True)
 
     if not is_xray(image):
         st.error("❌ Not a valid X-ray image")
