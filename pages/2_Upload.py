@@ -38,10 +38,10 @@ if uploaded:
     st.image(
         image_preview,
         caption="Uploaded X-ray Preview",
-        width=450   # smaller, clean, readable
+        width=450
     )
 
-# ---------------- METADATA FORM (NO ANALYZE BUTTON) ----------------
+# ---------------- METADATA FORM ----------------
 with st.form("meta"):
     st.markdown("### 🧾 Clinical Metadata")
 
@@ -66,7 +66,6 @@ with st.form("meta"):
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    # 🔴 Removed "Analyze / Start Analyzing" button
     st.form_submit_button("Continue")  # keeps form state only
 
 # ---------------- INSTRUCTION SECTION ----------------
@@ -104,13 +103,13 @@ with st.expander("Click to view detailed annotation instructions", expanded=True
     - Gap > 5 mm → **Yes**
     """)
 
-# ---------------- PREDICTION PIPELINE (AUTO) ----------------
+# ---------------- PREDICTION PIPELINE ----------------
 if uploaded and image_preview is not None:
 
     if not is_xray(image_preview):
-        with st.modal("Invalid Image"):
-            st.error("❌ This is not a valid X-ray image.")
-            st.button("OK")
+        st.warning("❌ This is not a valid X-ray image.")
+        if st.button("OK"):
+            st.stop()
         st.stop()
 
     metadata = {
