@@ -10,73 +10,50 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- SAFE CSS (ANTI-BLANK FIX) ----------------
-st.markdown("""
-<style>
-.main {
-    background-color: #ffffff;
-}
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
-.visible-box {
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 16px;
-    background-color: #fafafa;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # ---------------- TITLE ----------------
 st.title("🦴 MultiBoneFracNet")
-st.subheader("X-ray Upload & Clinical Metadata")
+st.subheader("Upload X-ray Image and Clinical Metadata")
 
-# ---------------- UPLOAD + GUIDANCE ----------------
+# ---------------- RESPONSIVE UPLOAD + INSTRUCTIONS ----------------
 left_col, right_col = st.columns([3, 2])
 
 with left_col:
     uploaded = st.file_uploader(
-        "Upload X-ray Image",
+        "Upload X-ray",
         type=["jpg", "jpeg", "png"]
     )
 
 with right_col:
-    st.markdown("""
-    <div class="visible-box">
-    <b>📌 Annotation & Metadata Guidelines</b>
+    with st.expander("📌 Instructions for Metadata Selection", expanded=True):
 
-    <br><br><b>Apply <i>End of the Bone</i> when:</b>
-    <ul>
-        <li>Humerus: middle → elbow</li>
-        <li>Radius/Ulna: middle → carpals</li>
-        <li>Femur: middle → knee</li>
-        <li>Tibia/Fibula: middle → metatarsal end</li>
-    </ul>
+        st.markdown("**Apply _End of the Bone_ when:**")
+        st.markdown("""
+        - Fracture occurs in the humerus, from the middle to the elbow  
+        - Fracture occurs in the radius or ulna, middle to carpals  
+        - Fracture occurs in the femur, from the middle to the knee  
+        - Fracture occurs in the tibia or fibula, from the middle to the end of the metatarsal
+        """)
 
-    <b>Apply <i>Begin of the Bone</i> when:</b>
-    <ul>
-        <li>Humerus: shoulder → middle</li>
-        <li>Radius/Ulna: elbow → middle</li>
-        <li>Femur: hip → middle</li>
-        <li>Tibia/Fibula: knee → middle</li>
-    </ul>
+        st.markdown("**Apply _Begin of the Bone_ when:**")
+        st.markdown("""
+        - Fracture occurs in the humerus, from the shoulder to the middle  
+        - Fracture occurs in the radius or ulna, from the elbow end to the middle  
+        - Fracture occurs in the femur, from the hip joint to the middle  
+        - Fracture occurs in the tibia or fibula, from the knee end to the middle
+        """)
 
-    <b>Apply <i>Callus Present</i> when:</b>
-    <ul>
-        <li>Previous fracture history</li>
-        <li>Bone appears healed or modified</li>
-    </ul>
+        st.markdown("**Apply _Callus Present_ when:**")
+        st.markdown("""
+        - There is a previous fracture issue  
+        - The bone appears modified or healed
+        """)
 
-    <b>Apply <i>Gap Visibility</i>:</b>
-    <ul>
-        <li>No visible gap → <b>No</b></li>
-        <li>Gap ≤ 5 mm → <b>Slight</b></li>
-        <li>Gap &gt; 5 mm → <b>Yes</b></li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
+        st.markdown("**Apply _Gap Visibility_:**")
+        st.markdown("""
+        - No fracture gap visible to the naked eye → **No**  
+        - Gap ≤ 5 mm → **Slight**  
+        - Gap > 5 mm → **Yes**
+        """)
 
 # ---------------- X-RAY VALIDATION ----------------
 def is_xray(img):
@@ -90,9 +67,7 @@ def is_xray(img):
     return diff < 15
 
 # ---------------- METADATA FORM ----------------
-with st.form("meta_form"):
-    st.markdown("### 🧾 Clinical Metadata")
-
+with st.form("meta"):
     c1, c2, c3 = st.columns(3)
 
     with c1:
@@ -111,18 +86,18 @@ with st.form("meta_form"):
 
     with c3:
         age = st.number_input("Age", 0, 120, 40)
-        bone_width = st.number_input("Bone Width (mm)", min_value=0.0)
-        fracture_gap = st.number_input("Fracture Gap (mm)", min_value=0.0)
+        bone_width = st.number_input("Bone Width", min_value=0.0)
+        fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    submit = st.form_submit_button("🔍 Analyze")
+    submit = st.form_submit_button("Analyze")
 
-# ---------------- PREDICTION ----------------
+# ---------------- PREDICTION PIPELINE ----------------
 if submit and uploaded:
     image = Image.open(uploaded).convert("RGB")
-    st.image(image, caption="Uploaded X-ray", use_column_width=True)
+    st.image(image, use_column_width=True)
 
     if not is_xray(image):
-        st.error("❌ This is not a valid X-ray image.")
+        st.error("❌ Not a valid X-ray image")
         st.stop()
 
     metadata = {
