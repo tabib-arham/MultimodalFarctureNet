@@ -88,6 +88,9 @@ with st.form("meta"):
 
     submitted = st.form_submit_button("Continue")
 
+# 🔹 Placeholder directly UNDER the Continue button
+error_placeholder = st.empty()
+
 # ---------------- INSTRUCTION SECTION ----------------
 st.markdown("---")
 st.markdown("## 📌 Instructions for Metadata Selection")
@@ -127,11 +130,11 @@ with st.expander("Click to view detailed annotation instructions", expanded=True
 if submitted:
 
     if not uploaded or image_preview is None:
-        st.error("❌ Please upload an X-ray image first.")
+        error_placeholder.error("❌ Please upload an X-ray image before continuing.")
         st.stop()
 
     if not is_valid_xray:
-        st.error("❌ Uploaded image is not a valid X-ray.")
+        error_placeholder.error("❌ Uploaded image is not a valid X-ray.")
         st.stop()
 
     metadata = {
