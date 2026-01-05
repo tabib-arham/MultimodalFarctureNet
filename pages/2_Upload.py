@@ -31,16 +31,17 @@ def is_xray(img):
     )
     return diff < 15
 
-# ---------------- IMAGE PREVIEW (FIXED SIZE ~600px) ----------------
+# ---------------- IMAGE PREVIEW (SMALL & CLEAN) ----------------
+image_preview = None
 if uploaded:
     image_preview = Image.open(uploaded).convert("RGB")
     st.image(
         image_preview,
         caption="Uploaded X-ray Preview",
-        width=600   # fixed visible size
+        width=450   # smaller, clean, readable
     )
 
-# ---------------- METADATA FORM ----------------
+# ---------------- METADATA FORM (NO ANALYZE BUTTON) ----------------
 with st.form("meta"):
     st.markdown("### 🧾 Clinical Metadata")
 
@@ -65,9 +66,10 @@ with st.form("meta"):
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    submit = st.form_submit_button("Analyze")
+    # 🔴 Removed "Analyze / Start Analyzing" button
+    st.form_submit_button("Continue")  # keeps form state only
 
-# ---------------- INSTRUCTION SECTION (FULL WIDTH) ----------------
+# ---------------- INSTRUCTION SECTION ----------------
 st.markdown("---")
 st.markdown("## 📌 Instructions for Metadata Selection")
 
@@ -102,12 +104,13 @@ with st.expander("Click to view detailed annotation instructions", expanded=True
     - Gap > 5 mm → **Yes**
     """)
 
-# ---------------- PREDICTION PIPELINE ----------------
-if submit and uploaded:
-    image = Image.open(uploaded).convert("RGB")
+# ---------------- PREDICTION PIPELINE (AUTO) ----------------
+if uploaded and image_preview is not None:
 
-    if not is_xray(image):
-        st.error("❌ Not a valid X-ray image")
+    if not is_xray(image_preview):
+        with st.modal("Invalid Image"):
+            st.error("❌ This is not a valid X-ray image.")
+            st.button("OK")
         st.stop()
 
     metadata = {
@@ -121,9 +124,9 @@ if submit and uploaded:
         "fracture_gap": fracture_gap
     }
 
-    preds, top = predict(image, metadata)
+    preds, top = predict(image_preview, metadata)
 
-    st.session_state["image"] = image
+    st.session_state["image"] = image_preview
     st.session_state["metadata"] = metadata
     st.session_state["preds"] = preds
     st.session_state["top"] = top
