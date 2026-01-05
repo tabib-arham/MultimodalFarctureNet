@@ -38,7 +38,7 @@ def is_xray(img):
 
 # ---------------- IMAGE PREVIEW & VALIDATION ----------------
 image_preview = None
-is_valid_xray = True
+is_valid_xray = False
 
 if uploaded:
     image_preview = Image.open(uploaded).convert("RGB")
@@ -49,21 +49,19 @@ if uploaded:
         width=450
     )
 
-    # Validate immediately
     is_valid_xray = is_xray(image_preview)
 
-    # ---------- INVALID IMAGE HANDLING ----------
     if not is_valid_xray:
         st.warning("❌ This is not a valid X-ray image.")
 
-        # ONE-CLICK RESET
         if st.button("OK"):
             st.session_state.uploader_reset += 1
 
-        # Stop page execution until reset happens
         st.stop()
 
-# ---------------- METADATA FORM (NO ANALYZE BUTTON) ----------------
+# ---------------- METADATA FORM ----------------
+submitted = False
+
 with st.form("meta"):
     st.markdown("### 🧾 Clinical Metadata")
 
@@ -88,8 +86,7 @@ with st.form("meta"):
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    # Keeps form state only (NO ANALYZE HERE)
-    st.form_submit_button("Continue")
+    submitted = st.form_submit_button("Continue")
 
 # ---------------- INSTRUCTION SECTION ----------------
 st.markdown("---")
@@ -126,8 +123,16 @@ with st.expander("Click to view detailed annotation instructions", expanded=True
     - Gap > 5 mm → **Yes**
     """)
 
-# ---------------- PREDICTION PIPELINE ----------------
-if uploaded and image_preview is not None and is_valid_xray:
+# ---------------- PREDICTION PIPELINE (ONLY AFTER CONTINUE) ----------------
+if submitted:
+
+    if not uploaded or image_preview is None:
+        st.error("❌ Please upload an X-ray image first.")
+        st.stop()
+
+    if not is_valid_xray:
+        st.error("❌ Uploaded image is not a valid X-ray.")
+        st.stop()
 
     metadata = {
         "gender": gender,
