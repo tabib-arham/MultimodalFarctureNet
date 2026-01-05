@@ -36,18 +36,21 @@ def is_xray(img):
     )
     return diff < 15
 
-# ---------------- IMAGE PREVIEW & VALIDATION ----------------
+# ---------------- IMAGE PREVIEW (RESPONSIVE & COMPACT) ----------------
 image_preview = None
 is_valid_xray = False
 
 if uploaded:
     image_preview = Image.open(uploaded).convert("RGB")
 
-    st.image(
-        image_preview,
-        caption="Uploaded X-ray Preview",
-        width=450
-    )
+    # Centered, compact image
+    img_left, img_center, img_right = st.columns([1, 2, 1])
+    with img_center:
+        st.image(
+            image_preview,
+            caption="Uploaded X-ray Preview",
+            width=350   # compact, mobile-friendly
+        )
 
     is_valid_xray = is_xray(image_preview)
 
