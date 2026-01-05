@@ -36,12 +36,13 @@ def is_xray(img):
     )
     return diff < 15
 
-# ---------------- IMAGE PREVIEW ----------------
+# ---------------- IMAGE PREVIEW & VALIDATION ----------------
 image_preview = None
 is_valid_xray = True
 
 if uploaded:
     image_preview = Image.open(uploaded).convert("RGB")
+
     st.image(
         image_preview,
         caption="Uploaded X-ray Preview",
@@ -51,18 +52,18 @@ if uploaded:
     # Validate immediately
     is_valid_xray = is_xray(image_preview)
 
-    # -------- INVALID MESSAGE JUST BELOW IMAGE --------
+    # ---------- INVALID IMAGE HANDLING ----------
     if not is_valid_xray:
         st.warning("❌ This is not a valid X-ray image.")
 
+        # ONE-CLICK RESET
         if st.button("OK"):
-            # Reset uploader only (cancel upload)
             st.session_state.uploader_reset += 1
 
-        # Stop further execution on invalid image
+        # Stop page execution until reset happens
         st.stop()
 
-# ---------------- METADATA FORM ----------------
+# ---------------- METADATA FORM (NO ANALYZE BUTTON) ----------------
 with st.form("meta"):
     st.markdown("### 🧾 Clinical Metadata")
 
@@ -87,7 +88,8 @@ with st.form("meta"):
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    st.form_submit_button("Analyze")
+    # Keeps form state only (NO ANALYZE HERE)
+    st.form_submit_button("Continue")
 
 # ---------------- INSTRUCTION SECTION ----------------
 st.markdown("---")
