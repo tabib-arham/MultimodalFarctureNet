@@ -11,8 +11,8 @@ st.set_page_config(
 )
 
 # ---------------- SESSION STATE INIT ----------------
-if "reset_uploader" not in st.session_state:
-    st.session_state.reset_uploader = False
+if "uploader_reset" not in st.session_state:
+    st.session_state.uploader_reset = 0
 
 # ---------------- TITLE ----------------
 st.title("🦴 MultiBoneFracNet")
@@ -22,7 +22,7 @@ st.subheader("Upload X-ray Image and Clinical Metadata")
 uploaded = st.file_uploader(
     "Upload X-ray",
     type=["jpg", "jpeg", "png"],
-    key="uploader"
+    key=f"uploader_{st.session_state.uploader_reset}"
 )
 
 # ---------------- X-RAY VALIDATION ----------------
@@ -48,19 +48,18 @@ if uploaded:
         width=450
     )
 
-    # Validate immediately after display
+    # Validate immediately
     is_valid_xray = is_xray(image_preview)
 
-    # ---------- INVALID MESSAGE JUST BELOW IMAGE ----------
+    # -------- INVALID MESSAGE JUST BELOW IMAGE --------
     if not is_valid_xray:
         st.warning("❌ This is not a valid X-ray image.")
 
         if st.button("OK"):
-            # Reset uploader and rerun page
-            st.session_state.clear()
-            st.experimental_rerun()
+            # Reset uploader only (cancel upload)
+            st.session_state.uploader_reset += 1
 
-        # Stop further execution
+        # Stop further execution on invalid image
         st.stop()
 
 # ---------------- METADATA FORM ----------------
@@ -88,7 +87,7 @@ with st.form("meta"):
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    st.form_submit_button("Continue")
+    st.form_submit_button("Analyze")
 
 # ---------------- INSTRUCTION SECTION ----------------
 st.markdown("---")
