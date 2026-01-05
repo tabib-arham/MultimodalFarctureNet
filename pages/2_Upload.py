@@ -10,6 +10,10 @@ st.set_page_config(
     layout="wide"
 )
 
+# ---------------- SESSION STATE INIT ----------------
+if "reset_uploader" not in st.session_state:
+    st.session_state.reset_uploader = False
+
 # ---------------- TITLE ----------------
 st.title("🦴 MultiBoneFracNet")
 st.subheader("Upload X-ray Image and Clinical Metadata")
@@ -17,7 +21,8 @@ st.subheader("Upload X-ray Image and Clinical Metadata")
 # ---------------- UPLOAD SECTION ----------------
 uploaded = st.file_uploader(
     "Upload X-ray",
-    type=["jpg", "jpeg", "png"]
+    type=["jpg", "jpeg", "png"],
+    key="uploader"
 )
 
 # ---------------- X-RAY VALIDATION ----------------
@@ -31,8 +36,10 @@ def is_xray(img):
     )
     return diff < 15
 
-# ---------------- IMAGE PREVIEW (SMALL & CLEAN) ----------------
+# ---------------- IMAGE PREVIEW ----------------
 image_preview = None
+is_valid_xray = True
+
 if uploaded:
     image_preview = Image.open(uploaded).convert("RGB")
     st.image(
@@ -40,6 +47,21 @@ if uploaded:
         caption="Uploaded X-ray Preview",
         width=450
     )
+
+    # Validate immediately after display
+    is_valid_xray = is_xray(image_preview)
+
+    # ---------- INVALID MESSAGE JUST BELOW IMAGE ----------
+    if not is_valid_xray:
+        st.warning("❌ This is not a valid X-ray image.")
+
+        if st.button("OK"):
+            # Reset uploader and rerun page
+            st.session_state.clear()
+            st.experimental_rerun()
+
+        # Stop further execution
+        st.stop()
 
 # ---------------- METADATA FORM ----------------
 with st.form("meta"):
@@ -66,7 +88,7 @@ with st.form("meta"):
         bone_width = st.number_input("Bone Width", min_value=0.0)
         fracture_gap = st.number_input("Fracture Gap", min_value=0.0)
 
-    st.form_submit_button("Continue")  # keeps form state only
+    st.form_submit_button("Continue")
 
 # ---------------- INSTRUCTION SECTION ----------------
 st.markdown("---")
@@ -104,13 +126,7 @@ with st.expander("Click to view detailed annotation instructions", expanded=True
     """)
 
 # ---------------- PREDICTION PIPELINE ----------------
-if uploaded and image_preview is not None:
-
-    if not is_xray(image_preview):
-        st.warning("❌ This is not a valid X-ray image.")
-        if st.button("OK"):
-            st.stop()
-        st.stop()
+if uploaded and image_preview is not None and is_valid_xray:
 
     metadata = {
         "gender": gender,
