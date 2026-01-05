@@ -31,10 +31,14 @@ def is_xray(img):
     )
     return diff < 15
 
-# ---------------- IMAGE PREVIEW (BEFORE METADATA FORM) ----------------
+# ---------------- IMAGE PREVIEW (FIXED SIZE ~600px) ----------------
 if uploaded:
     image_preview = Image.open(uploaded).convert("RGB")
-    st.image(image_preview, caption="Uploaded X-ray Preview", use_column_width=True)
+    st.image(
+        image_preview,
+        caption="Uploaded X-ray Preview",
+        width=600   # fixed visible size
+    )
 
 # ---------------- METADATA FORM ----------------
 with st.form("meta"):
@@ -63,7 +67,7 @@ with st.form("meta"):
 
     submit = st.form_submit_button("Analyze")
 
-# ---------------- INSTRUCTION SECTION (FULL WIDTH, BELOW METADATA) ----------------
+# ---------------- INSTRUCTION SECTION (FULL WIDTH) ----------------
 st.markdown("---")
 st.markdown("## 📌 Instructions for Metadata Selection")
 
